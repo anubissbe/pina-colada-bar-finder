@@ -30,6 +30,26 @@ interface BarResult {
   };
 }
 
+// Bar rating badge component
+function BarRatingBadge({ placeId }: { placeId: string }) {
+  const { data: rating } = trpc.reviews.averageRating.useQuery(
+    { placeId },
+    { enabled: !!placeId }
+  );
+
+  if (!rating || rating.count === 0) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center gap-1 text-sm bg-primary/10 px-2 py-0.5 rounded-full">
+      <span className="text-xs">🍹</span>
+      <span className="font-semibold">{rating.average.toFixed(1)}</span>
+      <span className="text-xs text-muted-foreground">({rating.count})</span>
+    </div>
+  );
+}
+
 // Reviews component for bar details
 function ReviewsSection({ placeId }: { placeId: string }) {
   const { isAuthenticated, user } = useAuth();
@@ -971,6 +991,7 @@ export default function Home() {
                               {bar.rating && (
                                 <p className="text-sm">⭐ {bar.rating}/5</p>
                               )}
+                              <BarRatingBadge placeId={bar.placeId} />
                               {bar.openNow !== undefined && (
                                 <span className={`text-xs px-2 py-0.5 rounded-full ${
                                   bar.openNow 

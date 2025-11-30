@@ -65,3 +65,11 @@
 - [x] Add rating system (1-5 stars) for piña coladas
 - [x] Implement edit/delete for user's own reviews
 - [x] Add timestamp display for reviews
+
+## Average Rating Badge
+
+- [x] Add backend procedure to calculate average rating per bar
+- [x] Fetch average ratings for all bars in search results
+- [x] Display rating badge in bar list view
+- [x] Show rating with star icon and review count
+- [x] Handle bars with no reviews gracefully

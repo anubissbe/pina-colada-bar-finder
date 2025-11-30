@@ -117,6 +117,13 @@ export const appRouter = router({
         await deleteReview(input.reviewId, ctx.user.id);
         return { success: true };
       }),
+
+    averageRating: publicProcedure
+      .input(z.object({ placeId: z.string() }))
+      .query(async ({ input }) => {
+        const { getAverageRating } = await import("./db");
+        return await getAverageRating(input.placeId);
+      }),
   }),
 });
 

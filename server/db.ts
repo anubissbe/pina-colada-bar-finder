@@ -261,3 +261,28 @@ export async function deleteReview(reviewId: number, userId: number) {
 
   return result;
 }
+
+export async function getAverageRating(placeId: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get average rating: database not available");
+    return null;
+  }
+
+  const result = await db
+    .select({
+      avgRating: sql<number>`AVG(${reviews.rating})`,
+      count: sql<number>`COUNT(*)`,
+    })
+    .from(reviews)
+    .where(eq(reviews.placeId, placeId));
+
+  if (result.length === 0 || result[0].count === 0) {
+    return null;
+  }
+
+  return {
+    average: Number(result[0].avgRating),
+    count: Number(result[0].count),
+  };
+}
