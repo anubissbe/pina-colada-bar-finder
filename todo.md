@@ -83,3 +83,10 @@
 - [x] Display photos in review list
 - [x] Add photo preview before submission
 - [x] Handle photo size validation (max 5MB)
+
+## Get Directions Button
+
+- [x] Add "Get Directions" button to bar detail view
+- [x] Generate Google Maps directions URL with user location and bar coordinates
+- [x] Open directions in new tab
+- [x] Handle cases where user location is not available

@@ -1060,6 +1060,22 @@ export default function Home() {
                   {/* Reviews Section */}
                   <ReviewsSection placeId={selectedBar.placeId} />
                   
+                  {/* Get Directions Button */}
+                  <Button
+                    variant="default"
+                    className="w-full"
+                    onClick={() => {
+                      const destination = `${selectedBar.latitude},${selectedBar.longitude}`;
+                      const url = userLocation
+                        ? `https://www.google.com/maps/dir/?api=1&origin=${userLocation.lat},${userLocation.lng}&destination=${destination}`
+                        : `https://www.google.com/maps/search/?api=1&query=${destination}`;
+                      window.open(url, '_blank');
+                    }}
+                  >
+                    <span className="mr-2">🗺️</span>
+                    Get Directions
+                  </Button>
+                  
                   <Button
                     variant="outline"
                     className="w-full"
