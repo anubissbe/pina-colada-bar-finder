@@ -54,3 +54,14 @@
 - [x] Display operating hours in bar detail view
 - [x] Handle special cases (24/7, closed days, etc.)
 - [x] Add visual styling for current day highlight
+
+## User Review System
+
+- [x] Create reviews database table with rating and comment fields
+- [x] Add backend procedures for creating reviews
+- [x] Add backend procedures for fetching bar reviews
+- [x] Build review submission form UI
+- [x] Display reviews list in bar detail view
+- [x] Add rating system (1-5 stars) for piña coladas
+- [x] Implement edit/delete for user's own reviews
+- [x] Add timestamp display for reviews

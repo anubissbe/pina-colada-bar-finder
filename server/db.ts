@@ -1,6 +1,6 @@
-import { eq, and, sql } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, favoriteBars, InsertFavoriteBar, barVerifications, InsertBarVerification } from "../drizzle/schema";
+import { InsertUser, users, favoriteBars, InsertFavoriteBar, barVerifications, InsertBarVerification, reviews, InsertReview } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -208,4 +208,56 @@ export async function getUserVerification(placeId: string, userId: number) {
     .limit(1);
 
   return result.length > 0 ? result[0] : null;
+}
+
+// Review helpers
+export async function addReview(review: InsertReview) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot add review: database not available");
+    return null;
+  }
+
+  const result = await db.insert(reviews).values(review);
+  return result;
+}
+
+export async function getReviewsByPlaceId(placeId: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get reviews: database not available");
+    return [];
+  }
+
+  const result = await db
+    .select({
+      id: reviews.id,
+      userId: reviews.userId,
+      placeId: reviews.placeId,
+      rating: reviews.rating,
+      comment: reviews.comment,
+      createdAt: reviews.createdAt,
+      updatedAt: reviews.updatedAt,
+      userName: users.name,
+    })
+    .from(reviews)
+    .leftJoin(users, eq(reviews.userId, users.id))
+    .where(eq(reviews.placeId, placeId))
+    .orderBy(desc(reviews.createdAt));
+
+  return result;
+}
+
+export async function deleteReview(reviewId: number, userId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot delete review: database not available");
+    return null;
+  }
+
+  const result = await db
+    .delete(reviews)
+    .where(and(eq(reviews.id, reviewId), eq(reviews.userId, userId)));
+
+  return result;
 }

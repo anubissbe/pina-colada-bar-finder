@@ -30,6 +30,174 @@ interface BarResult {
   };
 }
 
+// Reviews component for bar details
+function ReviewsSection({ placeId }: { placeId: string }) {
+  const { isAuthenticated, user } = useAuth();
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+  const [showForm, setShowForm] = useState(false);
+
+  const { data: reviews, refetch: refetchReviews } = trpc.reviews.list.useQuery(
+    { placeId },
+    { enabled: !!placeId }
+  );
+
+  const addReviewMutation = trpc.reviews.add.useMutation({
+    onSuccess: () => {
+      toast.success("Review submitted!");
+      setComment("");
+      setRating(5);
+      setShowForm(false);
+      refetchReviews();
+    },
+    onError: (error) => {
+      toast.error("Failed to submit review: " + error.message);
+    },
+  });
+
+  const deleteReviewMutation = trpc.reviews.delete.useMutation({
+    onSuccess: () => {
+      toast.success("Review deleted!");
+      refetchReviews();
+    },
+    onError: (error) => {
+      toast.error("Failed to delete review: " + error.message);
+    },
+  });
+
+  const handleSubmitReview = useCallback(() => {
+    if (!isAuthenticated) {
+      toast.error("Please login to leave a review");
+      return;
+    }
+    if (comment.trim().length === 0) {
+      toast.error("Please write a comment");
+      return;
+    }
+    addReviewMutation.mutate({ placeId, rating, comment: comment.trim() });
+  }, [isAuthenticated, placeId, rating, comment, addReviewMutation]);
+
+  const handleDeleteReview = useCallback((reviewId: number) => {
+    if (confirm("Are you sure you want to delete this review?")) {
+      deleteReviewMutation.mutate({ reviewId });
+    }
+  }, [deleteReviewMutation]);
+
+  return (
+    <div className="border border-border rounded-lg p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold text-foreground flex items-center gap-2">
+          <span className="text-lg">💬</span>
+          Reviews ({reviews?.length || 0})
+        </h3>
+        {isAuthenticated && !showForm && (
+          <Button
+            onClick={() => setShowForm(true)}
+            size="sm"
+            variant="outline"
+          >
+            Write Review
+          </Button>
+        )}
+      </div>
+
+      {showForm && (
+        <div className="space-y-3 border border-border rounded-lg p-3 bg-accent/20">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Rating</label>
+            <div className="flex gap-1">
+              {[1, 2, 3, 4, 5].map((star) => (
+                <button
+                  key={star}
+                  onClick={() => setRating(star)}
+                  className="text-2xl hover:scale-110 transition-transform"
+                >
+                  {star <= rating ? "⭐" : "☆"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Your Review</label>
+            <textarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              placeholder="Share your experience with the piña colada here..."
+              className="w-full min-h-[100px] p-2 border border-border rounded-md bg-background text-foreground resize-none"
+              maxLength={1000}
+            />
+            <p className="text-xs text-muted-foreground text-right">
+              {comment.length}/1000
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              onClick={handleSubmitReview}
+              disabled={addReviewMutation.isPending || comment.trim().length === 0}
+              size="sm"
+              className="flex-1"
+            >
+              {addReviewMutation.isPending ? "Submitting..." : "Submit Review"}
+            </Button>
+            <Button
+              onClick={() => {
+                setShowForm(false);
+                setComment("");
+                setRating(5);
+              }}
+              variant="outline"
+              size="sm"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {reviews && reviews.length > 0 ? (
+        <div className="space-y-3 max-h-[400px] overflow-y-auto">
+          {reviews.map((review) => (
+            <div key={review.id} className="border border-border rounded-lg p-3 space-y-2">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-sm">{review.userName || "Anonymous"}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(review.createdAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div className="flex gap-0.5 mt-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <span key={i} className="text-sm">
+                        {i < review.rating ? "⭐" : "☆"}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {user && user.id === review.userId && (
+                  <Button
+                    onClick={() => handleDeleteReview(review.id)}
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                  >
+                    Delete
+                  </Button>
+                )}
+              </div>
+              <p className="text-sm text-foreground whitespace-pre-wrap">{review.comment}</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground text-center py-4">
+          No reviews yet. Be the first to share your experience!
+        </p>
+      )}
+    </div>
+  );
+}
+
 // Verification component for bar details
 function VerificationSection({ placeId }: { placeId: string }) {
   const { isAuthenticated } = useAuth();
@@ -758,6 +926,9 @@ export default function Home() {
                   
                   {/* Verification Section */}
                   <VerificationSection placeId={selectedBar.placeId} />
+                  
+                  {/* Reviews Section */}
+                  <ReviewsSection placeId={selectedBar.placeId} />
                   
                   <Button
                     variant="outline"

@@ -84,6 +84,40 @@ export const appRouter = router({
         return await db.getUserVerification(input.placeId, ctx.user.id);
       }),
   }),
+
+  reviews: router({
+    add: protectedProcedure
+      .input(z.object({
+        placeId: z.string(),
+        rating: z.number().min(1).max(5),
+        comment: z.string().min(1).max(1000),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const { addReview } = await import("./db");
+        await addReview({
+          userId: ctx.user.id,
+          placeId: input.placeId,
+          rating: input.rating,
+          comment: input.comment,
+        });
+        return { success: true };
+      }),
+
+    list: publicProcedure
+      .input(z.object({ placeId: z.string() }))
+      .query(async ({ input }) => {
+        const { getReviewsByPlaceId } = await import("./db");
+        return await getReviewsByPlaceId(input.placeId);
+      }),
+
+    delete: protectedProcedure
+      .input(z.object({ reviewId: z.number() }))
+      .mutation(async ({ ctx, input }) => {
+        const { deleteReview } = await import("./db");
+        await deleteReview(input.reviewId, ctx.user.id);
+        return { success: true };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

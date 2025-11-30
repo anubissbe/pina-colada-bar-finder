@@ -25,6 +25,19 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
+export const reviews = mysqlTable("reviews", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  placeId: varchar("placeId", { length: 255 }).notNull(),
+  rating: int("rating").notNull(), // 1-5 stars
+  comment: text("comment").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Review = typeof reviews.$inferSelect;
+export type InsertReview = typeof reviews.$inferInsert;
+
 /**
  * Favorite bars table - stores user's saved bars that serve piña coladas
  */
