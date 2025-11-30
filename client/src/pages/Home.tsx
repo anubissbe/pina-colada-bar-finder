@@ -7,7 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { MapView } from "@/components/Map";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { MapPin, Heart, Search, Loader2, SlidersHorizontal } from "lucide-react";
+import { MapPin, Heart, Search, Loader2, SlidersHorizontal, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { useState, useCallback, useRef, useMemo } from "react";
 import { toast } from "sonner";
 
@@ -20,6 +20,123 @@ interface BarResult {
   rating?: number;
   priceLevel?: number;
   photoUrl?: string;
+  verificationStats?: {
+    verified: number;
+    unverified: number;
+    total: number;
+  };
+}
+
+// Verification component for bar details
+function VerificationSection({ placeId }: { placeId: string }) {
+  const { isAuthenticated } = useAuth();
+  const [userVote, setUserVote] = useState<boolean | null>(null);
+
+  const { data: stats, refetch: refetchStats } = trpc.verifications.stats.useQuery(
+    { placeId },
+    { enabled: !!placeId }
+  );
+
+  const { data: userVerification } = trpc.verifications.userVerification.useQuery(
+    { placeId },
+    { enabled: isAuthenticated && !!placeId }
+  );
+
+  const verifyMutation = trpc.verifications.add.useMutation({
+    onSuccess: () => {
+      toast.success("Thank you for verifying!");
+      refetchStats();
+    },
+    onError: (error) => {
+      toast.error("Failed to submit verification: " + error.message);
+    },
+  });
+
+  const handleVerify = useCallback(
+    (hasPinaColada: boolean) => {
+      if (!isAuthenticated) {
+        toast.error("Please login to verify");
+        return;
+      }
+      setUserVote(hasPinaColada);
+      verifyMutation.mutate({ placeId, hasPinaColada });
+    },
+    [isAuthenticated, placeId, verifyMutation]
+  );
+
+  const verificationPercentage = stats && stats.total > 0
+    ? Math.round((stats.verified / stats.total) * 100)
+    : null;
+
+  const currentUserVote = userVerification?.hasPinaColada === 1 ? true : userVerification?.hasPinaColada === 0 ? false : userVote;
+
+  return (
+    <div className="border border-border rounded-lg p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <AlertCircle className="h-5 w-5 text-primary" />
+        <h3 className="font-semibold text-foreground">Serves Piña Coladas?</h3>
+      </div>
+
+      {stats && stats.total > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Community Verification:</span>
+            <span className="font-semibold text-foreground">
+              {verificationPercentage}% Yes ({stats.verified}/{stats.total})
+            </span>
+          </div>
+          <div className="w-full bg-muted rounded-full h-2">
+            <div
+              className="bg-primary h-2 rounded-full transition-all"
+              style={{ width: `${verificationPercentage}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {!stats || stats.total === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No verifications yet. Be the first to confirm!
+        </p>
+      ) : null}
+
+      {isAuthenticated ? (
+        <div className="flex gap-2">
+          <Button
+            onClick={() => handleVerify(true)}
+            variant={currentUserVote === true ? "default" : "outline"}
+            size="sm"
+            className="flex-1 gap-2"
+            disabled={verifyMutation.isPending}
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            Yes
+          </Button>
+          <Button
+            onClick={() => handleVerify(false)}
+            variant={currentUserVote === false ? "destructive" : "outline"}
+            size="sm"
+            className="flex-1 gap-2"
+            disabled={verifyMutation.isPending}
+          >
+            <XCircle className="h-4 w-4" />
+            No
+          </Button>
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground text-center">
+          <a href={getLoginUrl()} className="text-primary hover:underline">
+            Login
+          </a>{" "}
+          to verify if this bar serves piña coladas
+        </p>
+      )}
+
+      <p className="text-xs text-muted-foreground">
+        Help the community by confirming if this bar actually serves piña coladas
+      </p>
+    </div>
+  );
 }
 
 export default function Home() {
@@ -154,14 +271,14 @@ export default function Home() {
       return;
     }
 
-    const request: google.maps.places.PlaceSearchRequest = {
+    // Use text search for better keyword matching
+    const request: google.maps.places.TextSearchRequest = {
       location: new google.maps.LatLng(location.lat, location.lng),
       radius: maxDistance,
-      type: "bar",
-      keyword: "cocktail piña colada",
+      query: "bar piña colada cocktail tropical drinks",
     };
 
-    placesServiceRef.current.nearbySearch(request, (results, status) => {
+    placesServiceRef.current.textSearch(request, (results, status) => {
       if (status === google.maps.places.PlacesServiceStatus.OK && results) {
         const barResults: BarResult[] = results.map((place) => ({
           placeId: place.place_id || "",
@@ -284,8 +401,12 @@ export default function Home() {
           <h2 className="text-3xl font-bold text-foreground mb-2">
             Find the Best Piña Coladas Near You
           </h2>
-          <p className="text-muted-foreground mb-4">
+          <p className="text-muted-foreground mb-2">
             Discover bars serving delicious piña coladas in your area
+          </p>
+          <p className="text-xs text-muted-foreground mb-4 max-w-2xl mx-auto">
+            <AlertCircle className="inline h-3 w-3 mr-1" />
+            Results are based on Google Places data and may not guarantee piña colada availability. Help verify by voting on each bar!
           </p>
           
           <div className="flex gap-3 justify-center">
@@ -497,6 +618,10 @@ export default function Home() {
                       <span className="font-semibold">{"$".repeat(selectedBar.priceLevel)}</span>
                     </div>
                   )}
+                  
+                  {/* Verification Section */}
+                  <VerificationSection placeId={selectedBar.placeId} />
+                  
                   <Button
                     variant="outline"
                     className="w-full"

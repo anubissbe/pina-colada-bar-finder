@@ -42,5 +42,19 @@ export const favoriteBars = mysqlTable("favorite_bars", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+/**
+ * Bar verifications table - tracks user confirmations of piña colada availability
+ */
+export const barVerifications = mysqlTable("bar_verifications", {
+  id: int("id").autoincrement().primaryKey(),
+  placeId: varchar("place_id", { length: 255 }).notNull(),
+  userId: int("user_id").notNull(),
+  hasPinaColada: int("has_pina_colada").notNull(), // 1 for yes, 0 for no
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type BarVerification = typeof barVerifications.$inferSelect;
+export type InsertBarVerification = typeof barVerifications.$inferInsert;
+
 export type FavoriteBar = typeof favoriteBars.$inferSelect;
 export type InsertFavoriteBar = typeof favoriteBars.$inferInsert;

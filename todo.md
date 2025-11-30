@@ -22,3 +22,11 @@
 - [x] Update search to respect filter parameters
 - [x] Test filter functionality with various combinations
 - [x] Ensure filters persist during map interactions
+
+## Search Accuracy Improvements
+
+- [x] Enhance search keywords to target tropical/cocktail bars
+- [x] Add user verification system (report if bar doesn't serve piña coladas)
+- [x] Add disclaimer about search results
+- [x] Implement user-contributed verification badges
+- [x] Add ability for users to confirm/deny piña colada availability

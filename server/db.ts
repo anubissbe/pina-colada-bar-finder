@@ -1,6 +1,6 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, favoriteBars, InsertFavoriteBar } from "../drizzle/schema";
+import { InsertUser, users, favoriteBars, InsertFavoriteBar, barVerifications, InsertBarVerification } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -136,4 +136,76 @@ export async function isFavoriteBar(placeId: string, userId: number) {
     .where(and(eq(favoriteBars.placeId, placeId), eq(favoriteBars.userId, userId)))
     .limit(1);
   return result.length > 0;
+}
+
+// Bar verification queries
+export async function addBarVerification(verification: InsertBarVerification) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot add verification: database not available");
+    return null;
+  }
+
+  // Check if user already verified this bar
+  const existing = await db.select().from(barVerifications)
+    .where(and(eq(barVerifications.placeId, verification.placeId), eq(barVerifications.userId, verification.userId)))
+    .limit(1);
+
+  if (existing.length > 0) {
+    // Update existing verification
+    await db.update(barVerifications)
+      .set({ hasPinaColada: verification.hasPinaColada, createdAt: new Date() })
+      .where(eq(barVerifications.id, existing[0].id));
+    return existing[0];
+  }
+
+  const result = await db.insert(barVerifications).values(verification);
+  return result;
+}
+
+export async function getBarVerificationStats(placeId: string) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get verification stats: database not available");
+    return { verified: 0, unverified: 0, total: 0 };
+  }
+
+  const results = await db.select({
+    hasPinaColada: barVerifications.hasPinaColada,
+    count: sql<number>`count(*)`
+  })
+  .from(barVerifications)
+  .where(eq(barVerifications.placeId, placeId))
+  .groupBy(barVerifications.hasPinaColada);
+
+  let verified = 0;
+  let unverified = 0;
+
+  results.forEach((row) => {
+    if (row.hasPinaColada === 1) {
+      verified = Number(row.count);
+    } else {
+      unverified = Number(row.count);
+    }
+  });
+
+  return {
+    verified,
+    unverified,
+    total: verified + unverified,
+  };
+}
+
+export async function getUserVerification(placeId: string, userId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get user verification: database not available");
+    return null;
+  }
+
+  const result = await db.select().from(barVerifications)
+    .where(and(eq(barVerifications.placeId, placeId), eq(barVerifications.userId, userId)))
+    .limit(1);
+
+  return result.length > 0 ? result[0] : null;
 }

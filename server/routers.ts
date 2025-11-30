@@ -55,6 +55,35 @@ export const appRouter = router({
         return await db.isFavoriteBar(input.placeId, ctx.user.id);
       }),
   }),
+
+  verifications: router({
+    add: protectedProcedure
+      .input(z.object({
+        placeId: z.string(),
+        hasPinaColada: z.boolean(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return await db.addBarVerification({
+          placeId: input.placeId,
+          userId: ctx.user.id,
+          hasPinaColada: input.hasPinaColada ? 1 : 0,
+        });
+      }),
+    stats: publicProcedure
+      .input(z.object({
+        placeId: z.string(),
+      }))
+      .query(async ({ input }) => {
+        return await db.getBarVerificationStats(input.placeId);
+      }),
+    userVerification: protectedProcedure
+      .input(z.object({
+        placeId: z.string(),
+      }))
+      .query(async ({ ctx, input }) => {
+        return await db.getUserVerification(input.placeId, ctx.user.id);
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
