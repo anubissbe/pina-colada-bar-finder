@@ -38,3 +38,11 @@
 - [x] Filter bars based on verification threshold (minimum votes and percentage)
 - [x] Update UI to show filter status and count
 - [x] Add visual indicators for verified bars in list view
+
+## Open Now Filter
+
+- [x] Add toggle switch for "Open Now" filter
+- [x] Capture opening hours data from Google Places API
+- [x] Filter bars based on current open status
+- [x] Display open/closed status in bar details
+- [x] Update filter UI to show open now status

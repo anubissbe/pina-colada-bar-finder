@@ -21,6 +21,7 @@ interface BarResult {
   rating?: number;
   priceLevel?: number;
   photoUrl?: string;
+  openNow?: boolean;
   verificationStats?: {
     verified: number;
     unverified: number;
@@ -154,6 +155,7 @@ export default function Home() {
   const [minRating, setMinRating] = useState(0);
   const [maxPriceLevel, setMaxPriceLevel] = useState(4);
   const [verifiedOnly, setVerifiedOnly] = useState(false);
+  const [openNow, setOpenNow] = useState(false);
   
   const mapRef = useRef<google.maps.Map | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
@@ -291,6 +293,7 @@ export default function Home() {
           rating: place.rating,
           priceLevel: place.price_level,
           photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400 }),
+          openNow: place.opening_hours?.open_now,
         }));
 
         // Fetch verification stats for all bars
@@ -388,10 +391,13 @@ export default function Home() {
         if (percentage < 60) return false; // At least 60% positive votes
       }
       
+      // Filter by open now status
+      if (openNow && bar.openNow === false) return false;
+      
       // Distance is already filtered by the API radius parameter
       return true;
     });
-  }, [bars, minRating, maxPriceLevel, verifiedOnly]);
+  }, [bars, minRating, maxPriceLevel, verifiedOnly, openNow]);
 
   const handleMapReady = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
@@ -561,8 +567,9 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Verified Only Toggle */}
-              <div className="mt-6 pt-6 border-t border-border">
+              {/* Filter Toggles */}
+              <div className="mt-6 pt-6 border-t border-border space-y-4">
+                {/* Verified Only Toggle */}
                 <div className="flex items-center justify-between">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -581,6 +588,26 @@ export default function Home() {
                     onCheckedChange={setVerifiedOnly}
                   />
                 </div>
+
+                {/* Open Now Toggle */}
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🕒</span>
+                      <Label htmlFor="open-now" className="text-sm font-medium cursor-pointer">
+                        Open Now
+                      </Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Show only bars currently open
+                    </p>
+                  </div>
+                  <Switch
+                    id="open-now"
+                    checked={openNow}
+                    onCheckedChange={setOpenNow}
+                  />
+                </div>
               </div>
 
               <div className="mt-4 flex justify-end">
@@ -590,6 +617,7 @@ export default function Home() {
                     setMinRating(0);
                     setMaxPriceLevel(4);
                     setVerifiedOnly(false);
+                    setOpenNow(false);
                     if (userLocation) {
                       searchNearbyBars(userLocation);
                     }
@@ -669,6 +697,16 @@ export default function Home() {
                       <span className="font-semibold">{"$".repeat(selectedBar.priceLevel)}</span>
                     </div>
                   )}
+                  {selectedBar.openNow !== undefined && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Status:</span>
+                      <span className={`font-semibold ${
+                        selectedBar.openNow ? "text-green-600" : "text-red-600"
+                      }`}>
+                        {selectedBar.openNow ? "🟢 Open Now" : "🔴 Closed"}
+                      </span>
+                    </div>
+                  )}
                   
                   {/* Verification Section */}
                   <VerificationSection placeId={selectedBar.placeId} />
@@ -710,9 +748,20 @@ export default function Home() {
                             <p className="text-sm text-muted-foreground line-clamp-1">
                               {bar.address}
                             </p>
-                            {bar.rating && (
-                              <p className="text-sm mt-1">⭐ {bar.rating}/5</p>
-                            )}
+                            <div className="flex items-center gap-3 mt-1">
+                              {bar.rating && (
+                                <p className="text-sm">⭐ {bar.rating}/5</p>
+                              )}
+                              {bar.openNow !== undefined && (
+                                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                                  bar.openNow 
+                                    ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300" 
+                                    : "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+                                }`}>
+                                  {bar.openNow ? "Open" : "Closed"}
+                                </span>
+                              )}
+                            </div>
                             {bar.verificationStats && bar.verificationStats.total > 0 && (
                               <p className="text-xs text-muted-foreground mt-1">
                                 {Math.round((bar.verificationStats.verified / bar.verificationStats.total) * 100)}% verified ({bar.verificationStats.total} votes)
