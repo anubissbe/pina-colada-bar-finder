@@ -30,3 +30,11 @@
 - [x] Add disclaimer about search results
 - [x] Implement user-contributed verification badges
 - [x] Add ability for users to confirm/deny piña colada availability
+
+## Verified Only Filter
+
+- [x] Add toggle switch for "Verified Only" filter
+- [x] Fetch verification stats for all bars in search results
+- [x] Filter bars based on verification threshold (minimum votes and percentage)
+- [x] Update UI to show filter status and count
+- [x] Add visual indicators for verified bars in list view

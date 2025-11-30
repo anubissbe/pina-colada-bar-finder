@@ -4,10 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { Switch } from "@/components/ui/switch";
 import { MapView } from "@/components/Map";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { MapPin, Heart, Search, Loader2, SlidersHorizontal, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
+import { MapPin, Heart, Search, Loader2, SlidersHorizontal, CheckCircle2, XCircle, AlertCircle, ShieldCheck } from "lucide-react";
 import { useState, useCallback, useRef, useMemo } from "react";
 import { toast } from "sonner";
 
@@ -152,6 +153,7 @@ export default function Home() {
   const [maxDistance, setMaxDistance] = useState(5000); // in meters
   const [minRating, setMinRating] = useState(0);
   const [maxPriceLevel, setMaxPriceLevel] = useState(4);
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   
   const mapRef = useRef<google.maps.Map | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
@@ -291,7 +293,8 @@ export default function Home() {
           photoUrl: place.photos?.[0]?.getUrl({ maxWidth: 400 }),
         }));
 
-        setBars(barResults);
+        // Fetch verification stats for all bars
+        fetchVerificationStatsForBars(barResults);
         displayMarkersOnMap(barResults);
         toast.success(`Found ${barResults.length} bars nearby!`);
         setShowFilters(true);
@@ -302,6 +305,23 @@ export default function Home() {
       setSearching(false);
     });
   }, [maxDistance]);
+
+  const utils = trpc.useUtils();
+
+  const fetchVerificationStatsForBars = useCallback(async (barResults: BarResult[]) => {
+    // Fetch verification stats for each bar
+    const barsWithStats = await Promise.all(
+      barResults.map(async (bar) => {
+        try {
+          const stats = await utils.verifications.stats.fetch({ placeId: bar.placeId });
+          return { ...bar, verificationStats: stats };
+        } catch (error) {
+          return bar;
+        }
+      })
+    );
+    setBars(barsWithStats);
+  }, [utils]);
 
   const displayMarkersOnMap = useCallback((barResults: BarResult[]) => {
     if (!mapRef.current) return;
@@ -360,10 +380,18 @@ export default function Home() {
       // Filter by price level
       if (bar.priceLevel !== undefined && bar.priceLevel > maxPriceLevel) return false;
       
+      // Filter by verification status
+      if (verifiedOnly) {
+        const stats = bar.verificationStats;
+        if (!stats || stats.total < 3) return false; // Minimum 3 votes required
+        const percentage = (stats.verified / stats.total) * 100;
+        if (percentage < 60) return false; // At least 60% positive votes
+      }
+      
       // Distance is already filtered by the API radius parameter
       return true;
     });
-  }, [bars, minRating, maxPriceLevel]);
+  }, [bars, minRating, maxPriceLevel, verifiedOnly]);
 
   const handleMapReady = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
@@ -533,12 +561,35 @@ export default function Home() {
                 </div>
               </div>
 
+              {/* Verified Only Toggle */}
+              <div className="mt-6 pt-6 border-t border-border">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-4 w-4 text-primary" />
+                      <Label htmlFor="verified-only" className="text-sm font-medium cursor-pointer">
+                        Verified Only
+                      </Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Show only bars confirmed by community (3+ votes, 60%+ positive)
+                    </p>
+                  </div>
+                  <Switch
+                    id="verified-only"
+                    checked={verifiedOnly}
+                    onCheckedChange={setVerifiedOnly}
+                  />
+                </div>
+              </div>
+
               <div className="mt-4 flex justify-end">
                 <Button
                   onClick={() => {
                     setMaxDistance(5000);
                     setMinRating(0);
                     setMaxPriceLevel(4);
+                    setVerifiedOnly(false);
                     if (userLocation) {
                       searchNearbyBars(userLocation);
                     }
@@ -647,12 +698,25 @@ export default function Home() {
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h3 className="font-semibold text-foreground">{bar.name}</h3>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-semibold text-foreground">{bar.name}</h3>
+                              {bar.verificationStats && bar.verificationStats.total >= 3 && 
+                               (bar.verificationStats.verified / bar.verificationStats.total) >= 0.6 && (
+                                <span title="Community Verified">
+                                  <ShieldCheck className="h-4 w-4 text-green-600" />
+                                </span>
+                              )}
+                            </div>
                             <p className="text-sm text-muted-foreground line-clamp-1">
                               {bar.address}
                             </p>
                             {bar.rating && (
                               <p className="text-sm mt-1">⭐ {bar.rating}/5</p>
+                            )}
+                            {bar.verificationStats && bar.verificationStats.total > 0 && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {Math.round((bar.verificationStats.verified / bar.verificationStats.total) * 100)}% verified ({bar.verificationStats.total} votes)
+                              </p>
                             )}
                           </div>
                           {isAuthenticated && (
