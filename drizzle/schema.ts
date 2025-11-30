@@ -25,4 +25,22 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+/**
+ * Favorite bars table - stores user's saved bars that serve piña coladas
+ */
+export const favoriteBars = mysqlTable("favorite_bars", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull(),
+  placeId: varchar("place_id", { length: 255 }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  address: text("address"),
+  latitude: varchar("latitude", { length: 50 }).notNull(),
+  longitude: varchar("longitude", { length: 50 }).notNull(),
+  rating: varchar("rating", { length: 10 }),
+  priceLevel: int("price_level"),
+  photoUrl: text("photo_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type FavoriteBar = typeof favoriteBars.$inferSelect;
+export type InsertFavoriteBar = typeof favoriteBars.$inferInsert;

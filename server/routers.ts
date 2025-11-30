@@ -1,7 +1,9 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
+import { z } from "zod";
+import * as db from "./db";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -17,12 +19,42 @@ export const appRouter = router({
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  favorites: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      return await db.getUserFavoriteBars(ctx.user.id);
+    }),
+    add: protectedProcedure
+      .input(z.object({
+        placeId: z.string(),
+        name: z.string(),
+        address: z.string().optional(),
+        latitude: z.string(),
+        longitude: z.string(),
+        rating: z.string().optional(),
+        priceLevel: z.number().optional(),
+        photoUrl: z.string().optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return await db.addFavoriteBar({
+          userId: ctx.user.id,
+          ...input,
+        });
+      }),
+    remove: protectedProcedure
+      .input(z.object({
+        id: z.number(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        return await db.removeFavoriteBar(input.id, ctx.user.id);
+      }),
+    check: protectedProcedure
+      .input(z.object({
+        placeId: z.string(),
+      }))
+      .query(async ({ ctx, input }) => {
+        return await db.isFavoriteBar(input.placeId, ctx.user.id);
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;

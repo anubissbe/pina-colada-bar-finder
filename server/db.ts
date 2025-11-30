@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, favoriteBars, InsertFavoriteBar } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,51 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+// Favorite bars queries
+export async function getUserFavoriteBars(userId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot get favorite bars: database not available");
+    return [];
+  }
+
+  const result = await db.select().from(favoriteBars).where(eq(favoriteBars.userId, userId));
+  return result;
+}
+
+export async function addFavoriteBar(bar: InsertFavoriteBar) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot add favorite bar: database not available");
+    return null;
+  }
+
+  const result = await db.insert(favoriteBars).values(bar);
+  return result;
+}
+
+export async function removeFavoriteBar(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot remove favorite bar: database not available");
+    return null;
+  }
+
+  const result = await db.delete(favoriteBars).where(
+    and(eq(favoriteBars.id, id), eq(favoriteBars.userId, userId))
+  );
+  return result;
+}
+
+export async function isFavoriteBar(placeId: string, userId: number) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot check favorite bar: database not available");
+    return false;
+  }
+
+  const result = await db.select().from(favoriteBars)
+    .where(and(eq(favoriteBars.placeId, placeId), eq(favoriteBars.userId, userId)))
+    .limit(1);
+  return result.length > 0;
+}
