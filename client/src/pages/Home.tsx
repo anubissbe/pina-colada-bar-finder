@@ -1,11 +1,14 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import { MapView } from "@/components/Map";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { MapPin, Heart, Search, Loader2 } from "lucide-react";
-import { useState, useCallback, useRef } from "react";
+import { MapPin, Heart, Search, Loader2, SlidersHorizontal } from "lucide-react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import { toast } from "sonner";
 
 interface BarResult {
@@ -26,6 +29,12 @@ export default function Home() {
   const [selectedBar, setSelectedBar] = useState<BarResult | null>(null);
   const [searching, setSearching] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [showFilters, setShowFilters] = useState(false);
+  
+  // Filter states
+  const [maxDistance, setMaxDistance] = useState(5000); // in meters
+  const [minRating, setMinRating] = useState(0);
+  const [maxPriceLevel, setMaxPriceLevel] = useState(4);
   
   const mapRef = useRef<google.maps.Map | null>(null);
   const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
@@ -147,7 +156,7 @@ export default function Home() {
 
     const request: google.maps.places.PlaceSearchRequest = {
       location: new google.maps.LatLng(location.lat, location.lng),
-      radius: 5000, // 5km radius
+      radius: maxDistance,
       type: "bar",
       keyword: "cocktail piña colada",
     };
@@ -168,13 +177,14 @@ export default function Home() {
         setBars(barResults);
         displayMarkersOnMap(barResults);
         toast.success(`Found ${barResults.length} bars nearby!`);
+        setShowFilters(true);
       } else {
         toast.error("No bars found nearby. Try a different location.");
         setBars([]);
       }
       setSearching(false);
     });
-  }, []);
+  }, [maxDistance]);
 
   const displayMarkersOnMap = useCallback((barResults: BarResult[]) => {
     if (!mapRef.current) return;
@@ -224,6 +234,20 @@ export default function Home() {
     });
   }, []);
 
+  // Filtered bars based on user criteria
+  const filteredBars = useMemo(() => {
+    return bars.filter((bar) => {
+      // Filter by rating
+      if (bar.rating && bar.rating < minRating) return false;
+      
+      // Filter by price level
+      if (bar.priceLevel !== undefined && bar.priceLevel > maxPriceLevel) return false;
+      
+      // Distance is already filtered by the API radius parameter
+      return true;
+    });
+  }, [bars, minRating, maxPriceLevel]);
+
   const handleMapReady = useCallback((map: google.maps.Map) => {
     mapRef.current = map;
     placesServiceRef.current = new google.maps.places.PlacesService(map);
@@ -264,29 +288,149 @@ export default function Home() {
             Discover bars serving delicious piña coladas in your area
           </p>
           
-          <Button
-            onClick={getUserLocation}
-            disabled={searching}
-            size="lg"
-            className="gap-2"
-          >
-            {searching ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                Searching...
-              </>
-            ) : (
-              <>
-                <Search className="h-5 w-5" />
-                Find Bars Near Me
-              </>
+          <div className="flex gap-3 justify-center">
+            <Button
+              onClick={getUserLocation}
+              disabled={searching}
+              size="lg"
+              className="gap-2"
+            >
+              {searching ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Searching...
+                </>
+              ) : (
+                <>
+                  <Search className="h-5 w-5" />
+                  Find Bars Near Me
+                </>
+              )}
+            </Button>
+            
+            {bars.length > 0 && (
+              <Button
+                onClick={() => setShowFilters(!showFilters)}
+                variant="outline"
+                size="lg"
+                className="gap-2"
+              >
+                <SlidersHorizontal className="h-5 w-5" />
+                Filters
+              </Button>
             )}
-          </Button>
+          </div>
           
           {locationError && (
             <p className="text-destructive text-sm mt-2">{locationError}</p>
           )}
         </div>
+
+        {/* Filters Section */}
+        {showFilters && bars.length > 0 && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <SlidersHorizontal className="h-5 w-5" />
+                Filter Results
+              </CardTitle>
+              <CardDescription>
+                Showing {filteredBars.length} of {bars.length} bars
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Distance Filter */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">
+                    Max Distance: {(maxDistance / 1000).toFixed(1)} km
+                  </Label>
+                  <Slider
+                    value={[maxDistance]}
+                    onValueChange={(value) => setMaxDistance(value[0])}
+                    min={1000}
+                    max={10000}
+                    step={500}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>1 km</span>
+                    <span>10 km</span>
+                  </div>
+                  <Button
+                    onClick={() => {
+                      if (userLocation) {
+                        searchNearbyBars(userLocation);
+                      }
+                    }}
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                  >
+                    Apply Distance
+                  </Button>
+                </div>
+
+                {/* Rating Filter */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">
+                    Minimum Rating: {minRating > 0 ? `${minRating}+ ⭐` : "Any"}
+                  </Label>
+                  <Slider
+                    value={[minRating]}
+                    onValueChange={(value) => setMinRating(value[0])}
+                    min={0}
+                    max={5}
+                    step={0.5}
+                    className="w-full"
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>Any</span>
+                    <span>5 ⭐</span>
+                  </div>
+                </div>
+
+                {/* Price Filter */}
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium">
+                    Max Price: {maxPriceLevel > 0 ? "$".repeat(maxPriceLevel) : "Any"}
+                  </Label>
+                  <Select
+                    value={maxPriceLevel.toString()}
+                    onValueChange={(value) => setMaxPriceLevel(parseInt(value))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">$ (Inexpensive)</SelectItem>
+                      <SelectItem value="2">$$ (Moderate)</SelectItem>
+                      <SelectItem value="3">$$$ (Expensive)</SelectItem>
+                      <SelectItem value="4">$$$$ (Very Expensive)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="mt-4 flex justify-end">
+                <Button
+                  onClick={() => {
+                    setMaxDistance(5000);
+                    setMinRating(0);
+                    setMaxPriceLevel(4);
+                    if (userLocation) {
+                      searchNearbyBars(userLocation);
+                    }
+                  }}
+                  variant="ghost"
+                  size="sm"
+                >
+                  Reset Filters
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Map and Results */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -362,15 +506,15 @@ export default function Home() {
                   </Button>
                 </CardContent>
               </Card>
-            ) : bars.length > 0 ? (
+            ) : filteredBars.length > 0 ? (
               <Card>
                 <CardHeader>
-                  <CardTitle>Found {bars.length} Bars</CardTitle>
+                  <CardTitle>Found {filteredBars.length} Bars</CardTitle>
                   <CardDescription>Click on a marker or bar to see details</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3 max-h-[500px] overflow-y-auto">
-                    {bars.map((bar) => (
+                    {filteredBars.map((bar) => (
                       <div
                         key={bar.placeId}
                         className="p-3 border border-border rounded-lg hover:bg-accent/50 cursor-pointer transition-colors"
@@ -412,6 +556,31 @@ export default function Home() {
                       </div>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+            ) : bars.length > 0 ? (
+              <Card>
+                <CardHeader>
+                  <CardTitle>No Bars Match Filters</CardTitle>
+                  <CardDescription>
+                    Try adjusting your filter criteria
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="text-center py-8">
+                  <SlidersHorizontal className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground mb-4">
+                    No bars match your current filters
+                  </p>
+                  <Button
+                    onClick={() => {
+                      setMaxDistance(5000);
+                      setMinRating(0);
+                      setMaxPriceLevel(4);
+                    }}
+                    variant="outline"
+                  >
+                    Reset Filters
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
