@@ -56,6 +56,9 @@ function ReviewsSection({ placeId }: { placeId: string }) {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const { data: reviews, refetch: refetchReviews } = trpc.reviews.list.useQuery(
     { placeId },
@@ -85,7 +88,38 @@ function ReviewsSection({ placeId }: { placeId: string }) {
     },
   });
 
-  const handleSubmitReview = useCallback(() => {
+  const handlePhotoChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Photo must be less than 5MB");
+      return;
+    }
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+
+    setPhotoFile(file);
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setPhotoPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  }, []);
+
+  const handleRemovePhoto = useCallback(() => {
+    setPhotoFile(null);
+    setPhotoPreview(null);
+  }, []);
+
+  const handleSubmitReview = useCallback(async () => {
     if (!isAuthenticated) {
       toast.error("Please login to leave a review");
       return;
@@ -94,8 +128,39 @@ function ReviewsSection({ placeId }: { placeId: string }) {
       toast.error("Please write a comment");
       return;
     }
-    addReviewMutation.mutate({ placeId, rating, comment: comment.trim() });
-  }, [isAuthenticated, placeId, rating, comment, addReviewMutation]);
+
+    let photoUrl: string | undefined;
+
+    // Upload photo if present
+    if (photoFile) {
+      setUploading(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", photoFile);
+
+        const response = await fetch("/api/upload-photo", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to upload photo");
+        }
+
+        const data = await response.json();
+        photoUrl = data.url;
+      } catch (error) {
+        toast.error("Failed to upload photo");
+        setUploading(false);
+        return;
+      }
+      setUploading(false);
+    }
+
+    addReviewMutation.mutate({ placeId, rating, comment: comment.trim(), photoUrl });
+    setPhotoFile(null);
+    setPhotoPreview(null);
+  }, [isAuthenticated, placeId, rating, comment, photoFile, addReviewMutation]);
 
   const handleDeleteReview = useCallback((reviewId: number) => {
     if (confirm("Are you sure you want to delete this review?")) {
@@ -150,20 +215,58 @@ function ReviewsSection({ placeId }: { placeId: string }) {
               {comment.length}/1000
             </p>
           </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Photo (Optional)</label>
+            {photoPreview ? (
+              <div className="relative">
+                <img
+                  src={photoPreview}
+                  alt="Preview"
+                  className="w-full max-h-[200px] object-cover rounded-md"
+                />
+                <Button
+                  onClick={handleRemovePhoto}
+                  variant="destructive"
+                  size="sm"
+                  className="absolute top-2 right-2"
+                >
+                  Remove
+                </Button>
+              </div>
+            ) : (
+              <div className="border-2 border-dashed border-border rounded-md p-4 text-center">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoChange}
+                  className="hidden"
+                  id="photo-upload"
+                />
+                <label
+                  htmlFor="photo-upload"
+                  className="cursor-pointer text-sm text-muted-foreground hover:text-foreground"
+                >
+                  Click to upload a photo of your piña colada (max 5MB)
+                </label>
+              </div>
+            )}
+          </div>
           <div className="flex gap-2">
             <Button
               onClick={handleSubmitReview}
-              disabled={addReviewMutation.isPending || comment.trim().length === 0}
+              disabled={addReviewMutation.isPending || uploading || comment.trim().length === 0}
               size="sm"
               className="flex-1"
             >
-              {addReviewMutation.isPending ? "Submitting..." : "Submit Review"}
+              {uploading ? "Uploading..." : addReviewMutation.isPending ? "Submitting..." : "Submit Review"}
             </Button>
             <Button
               onClick={() => {
                 setShowForm(false);
                 setComment("");
                 setRating(5);
+                setPhotoFile(null);
+                setPhotoPreview(null);
               }}
               variant="outline"
               size="sm"
@@ -205,6 +308,13 @@ function ReviewsSection({ placeId }: { placeId: string }) {
                   </Button>
                 )}
               </div>
+              {review.photoUrl && (
+                <img
+                  src={review.photoUrl}
+                  alt="Piña colada"
+                  className="w-full max-h-[300px] object-cover rounded-md"
+                />
+              )}
               <p className="text-sm text-foreground whitespace-pre-wrap">{review.comment}</p>
             </div>
           ))}

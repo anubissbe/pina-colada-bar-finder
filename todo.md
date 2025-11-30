@@ -73,3 +73,13 @@
 - [x] Display rating badge in bar list view
 - [x] Show rating with star icon and review count
 - [x] Handle bars with no reviews gracefully
+
+## Review Photo Upload
+
+- [x] Add photoUrl field to reviews database table
+- [x] Update review procedures to handle photo uploads
+- [x] Add file input to review form UI
+- [x] Implement photo upload to S3 storage
+- [x] Display photos in review list
+- [x] Add photo preview before submission
+- [x] Handle photo size validation (max 5MB)

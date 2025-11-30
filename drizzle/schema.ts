@@ -29,8 +29,9 @@ export const reviews = mysqlTable("reviews", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull(),
   placeId: varchar("placeId", { length: 255 }).notNull(),
-  rating: int("rating").notNull(), // 1-5 stars
+  rating: int("rating").notNull(),
   comment: text("comment").notNull(),
+  photoUrl: varchar("photoUrl", { length: 1024 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

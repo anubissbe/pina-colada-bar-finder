@@ -87,10 +87,11 @@ export const appRouter = router({
 
   reviews: router({
     add: protectedProcedure
-      .input(z.object({
-        placeId: z.string(),
+      .input(z.object({ 
+        placeId: z.string(), 
         rating: z.number().min(1).max(5),
         comment: z.string().min(1).max(1000),
+        photoUrl: z.string().optional()
       }))
       .mutation(async ({ ctx, input }) => {
         const { addReview } = await import("./db");
@@ -99,6 +100,7 @@ export const appRouter = router({
           placeId: input.placeId,
           rating: input.rating,
           comment: input.comment,
+          photoUrl: input.photoUrl,
         });
         return { success: true };
       }),

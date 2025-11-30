@@ -236,6 +236,7 @@ export async function getReviewsByPlaceId(placeId: string) {
       placeId: reviews.placeId,
       rating: reviews.rating,
       comment: reviews.comment,
+      photoUrl: reviews.photoUrl,
       createdAt: reviews.createdAt,
       updatedAt: reviews.updatedAt,
       userName: users.name,
