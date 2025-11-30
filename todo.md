@@ -46,3 +46,11 @@
 - [x] Filter bars based on current open status
 - [x] Display open/closed status in bar details
 - [x] Update filter UI to show open now status
+
+## Weekly Operating Hours Display
+
+- [x] Fetch detailed place information including opening hours
+- [x] Parse and format weekly hours data
+- [x] Display operating hours in bar detail view
+- [x] Handle special cases (24/7, closed days, etc.)
+- [x] Add visual styling for current day highlight

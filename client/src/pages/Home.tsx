@@ -22,6 +22,7 @@ interface BarResult {
   priceLevel?: number;
   photoUrl?: string;
   openNow?: boolean;
+  openingHours?: string[];
   verificationStats?: {
     verified: number;
     unverified: number;
@@ -356,7 +357,7 @@ export default function Home() {
       });
 
       marker.addListener("click", () => {
-        setSelectedBar(bar);
+        fetchDetailedPlaceInfo(bar);
         
         const content = `
           <div style="max-width: 250px;">
@@ -371,6 +372,27 @@ export default function Home() {
       });
 
       markersRef.current.push(marker);
+    });
+  }, []);
+
+  const fetchDetailedPlaceInfo = useCallback((bar: BarResult) => {
+    if (!placesServiceRef.current) return;
+
+    const request = {
+      placeId: bar.placeId,
+      fields: ['opening_hours'],
+    };
+
+    placesServiceRef.current.getDetails(request, (place, status) => {
+      if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+        const detailedBar = {
+          ...bar,
+          openingHours: place.opening_hours?.weekday_text,
+        };
+        setSelectedBar(detailedBar);
+      } else {
+        setSelectedBar(bar);
+      }
     });
   }, []);
 
@@ -708,6 +730,32 @@ export default function Home() {
                     </div>
                   )}
                   
+                  {/* Opening Hours */}
+                  {selectedBar.openingHours && selectedBar.openingHours.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="font-semibold text-sm flex items-center gap-2">
+                        <span className="text-lg">🕒</span>
+                        Opening Hours
+                      </h4>
+                      <div className="space-y-1 text-sm">
+                        {selectedBar.openingHours.map((hours, index) => {
+                          const today = new Date().getDay();
+                          const isToday = (today === 0 ? 6 : today - 1) === index;
+                          return (
+                            <div
+                              key={index}
+                              className={`py-1 px-2 rounded ${
+                                isToday ? "bg-primary/10 font-semibold" : "text-muted-foreground"
+                              }`}
+                            >
+                              {hours}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Verification Section */}
                   <VerificationSection placeId={selectedBar.placeId} />
                   
@@ -732,7 +780,7 @@ export default function Home() {
                       <div
                         key={bar.placeId}
                         className="p-3 border border-border rounded-lg hover:bg-accent/50 cursor-pointer transition-colors"
-                        onClick={() => setSelectedBar(bar)}
+                        onClick={() => fetchDetailedPlaceInfo(bar)}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
